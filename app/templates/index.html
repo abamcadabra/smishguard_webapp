@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmishGuard | Realtime Smishing Detection</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="header-group">
+      <h1>SmishGuard</h1>
+      <p class="subtitle">Realtime Smishing Detection</p>
+    </div>
+
+    <textarea id="messageText" placeholder="Paste or type the SMS message here to analyze..."></textarea>
+    
+    <button id="analyzeBtn" onclick="predictMessage()">
+      <div class="spinner"></div>
+      <span id="btnText">Analyze Message</span>
+    </button>
+
+    <div id="result" class="result hidden">
+      <h2>
+        Analysis Result
+        <span id="finalPredBadge" class="badge"></span>
+      </h2>
+      
+      <div class="result-grid">
+        <div class="data-item full-width">
+          <span class="data-label">Reason</span>
+          <span class="data-value" id="reason">-</span>
+        </div>
+       <div class="data-item">
+          <span class="data-label">Text Probability</span>
+          <span class="data-value" id="textProb">-</span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">URL Probability</span>
+          <span class="data-value" id="urlProb">-</span>
+        </div>
+        <div class="data-item full-width">
+          <span class="data-label">Clean Text</span>
+          <span class="data-value" id="cleanText">-</span>
+        </div>
+        <div class="data-item full-width">
+          <span class="data-label">Extracted URL</span>
+          <span class="data-value" id="extractedUrl">-</span>
+        </div>
+        <div class="data-item full-width" style="border-top: 1px solid #e2e8f0; padding-top: 12px;">
+          <span class="data-label">Latency</span>
+          <span class="data-value" style="color:#64748b; font-size:13px;"><span id="latency"></span> ms</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error hidden"></div>
+  </div>
+
+  <script>
+    const formatProb = (prob) => {
+      if (prob == null || prob === "-") return "-";
+      return (parseFloat(prob) * 100).toFixed(2) + "%";
+    };
+
+    async function predictMessage() {
+      const messageText = document.getElementById("messageText").value.trim();
+      const resultBox = document.getElementById("result");
+      const errorBox = document.getElementById("errorBox");
+      const analyzeBtn = document.getElementById("analyzeBtn");
+      const btnText = document.getElementById("btnText");
+
+      resultBox.classList.add("hidden");
+      errorBox.classList.add("hidden");
+      errorBox.textContent = "";
+
+      if (!messageText) {
+        errorBox.textContent = "Please enter a message to analyze.";
+        errorBox.classList.remove("hidden");
+        return;
+      }
+
+      analyzeBtn.disabled = true;
+      analyzeBtn.classList.add("loading");
+      btnText.textContent = "Analyzing...";
+
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message_text: messageText,
+            source: "web_ui"
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          errorBox.textContent = data.detail || "Prediction failed. Server returned an error.";
+          errorBox.classList.remove("hidden");
+        } else {
+          document.getElementById("cleanText").textContent = data.clean_text || "-";
+          document.getElementById("extractedUrl").textContent = data.extracted_url || "No URL found";
+          
+          document.getElementById("textProb").textContent = formatProb(data.text_prob);
+          document.getElementById("urlProb").textContent = formatProb(data.url_prob);
+          
+          document.getElementById("reason").textContent = data.reason || "-";
+          document.getElementById("latency").textContent = data.latency_ms || "-";
+
+          const badgeEl = document.getElementById("finalPredBadge");
+          badgeEl.className = "badge"; 
+          
+          if (data.final_pred === 1) {
+            badgeEl.textContent = "Smishing";
+            badgeEl.classList.add("danger");
+          } else {
+            badgeEl.textContent = "Legitimate";
+            badgeEl.classList.add("success");
+          }
+
+          resultBox.classList.remove("hidden");
+        }
+      } catch (err) {
+        errorBox.textContent = "Cannot connect to API. Please make sure the server is running.";
+        errorBox.classList.remove("hidden");
+      } finally {
+        analyzeBtn.disabled = false;
+        analyzeBtn.classList.remove("loading");
+        btnText.textContent = "Analyze Message";
+      }
+    }
+  </script>
+</body>
+</html>
