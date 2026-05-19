@@ -21,9 +21,10 @@ def bert_layer(inputs):
     input_ids, attention_mask = inputs
 
     outputs = bert_model(
-        input_ids=input_ids,
-        attention_mask=attention_mask
-    )
+    input_ids=input_ids,
+    attention_mask=attention_mask,
+    training=False
+    )   
 
     return outputs.last_hidden_state
 
@@ -52,7 +53,11 @@ class TextModelService:
             encoded["attention_mask"]
         ]
 
-        prob = float(self.model.predict(inputs, verbose=0).ravel()[0])
+        prob = float(
+        self.model(
+        inputs,
+        training=False
+        ).numpy().ravel()[0])
         pred = 1 if prob >= TEXT_THRESHOLD else 0
         return prob, pred
 
