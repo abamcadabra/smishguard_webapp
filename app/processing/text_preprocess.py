@@ -9,7 +9,7 @@ import pandas as pd
 from typing import List
 
 from pythainlp.util import normalize as th_normalize
-from transformers import AutoTokenizer
+from transformers import PreTrainedTokenizerFast
 
 # ---------------------------------------------------------
 # Config (MUST match training)
@@ -63,8 +63,12 @@ _tokenizer = None
 
 def get_tokenizer():
     global _tokenizer
+
     if _tokenizer is None:
-        _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        _tokenizer = PreTrainedTokenizerFast(
+            tokenizer_file="models/text_model/bert_bilstm_tokenizer/tokenizer.json"
+        )
+
     return _tokenizer
 
 # ---------------------------------------------------------
@@ -90,11 +94,17 @@ def encode_bert(texts: List[str]):
 # High-level inference helper
 # ---------------------------------------------------------
 def preprocess_mbert(texts: List[str]):
-    """
-    Full preprocessing pipeline for mBERT inference
-    (Normalization + Tokenization)
-    """
-    return encode_bert(texts)
+
+    cleaned = []
+
+    for text in texts:
+
+        if re.search(r"[\u0E00-\u0E7F]", str(text)):
+            cleaned.append(normalize_th(text))
+        else:
+            cleaned.append(normalize_en(text))
+
+    return encode_bert(cleaned)
 
 def preprocess_text(text: str) -> str:
     """
